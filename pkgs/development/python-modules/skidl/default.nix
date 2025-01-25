@@ -2,39 +2,59 @@
   lib,
   buildPythonPackage,
   fetchFromGitHub,
-  future,
   kinparse,
   pyspice,
   graphviz,
+  sexpdata,
+  nix-update-script,
+  pkgs,
 }:
 
 buildPythonPackage rec {
   pname = "skidl";
-  version = "1.0.0";
+  version = "2.0.1";
   format = "setuptools";
 
   src = fetchFromGitHub {
-    owner = "xesscorp";
-    repo = "skidl";
-    rev = version;
-    sha256 = "1m0hllvmr5nkl4zy8yyzfgw9zmbrrzd5pw87ahd2mq68fjpcaqq5";
+    owner = "devbisme";
+    repo = pname;
+    tag = version;
+    hash = "sha256-EzKtXdQFB6kjaIuCYAsyFPlwmkefb5RJcnpFYCVHHb8=";
   };
 
   propagatedBuildInputs = [
-    future
-    kinparse
     pyspice
     graphviz
+    kinparse
+    sexpdata
   ];
 
-  # Checks require availability of the kicad symbol libraries.
-  doCheck = false;
+  # set path to KiCad symbols
+  KICAD8_SYMBOL_DIR = "${lib.getBin pkgs.kicad.passthru.libraries.symbols}/share/kicad/symbols";
+  makeWrapperArgs = [
+    "--set KICAD8_SYMBOL_DIR ${lib.getBin pkgs.kicad.passthru.libraries.symbols}/share/kicad/symbols"
+  ];
+
+  doInstallCheck = true;
   pythonImportsCheck = [ "skidl" ];
+  # check needs writes logfiles to the current working directory
+  checkPhase = ''
+    runHook preCheck
+
+    cd $(mktemp -d);
+    # export KICAD8_SYMBOL_DIR="${lib.getBin pkgs.kicad.passthru.libraries.symbols}/share/kicad/symbols"
+    $out/bin/${meta.mainProgram} --version | grep -q "skidl ${version}"
+
+    runHook postCheck
+  '';
+
+  passthru.updateScript = nix-update-script { };
 
   meta = with lib; {
     description = "Module that extends Python with the ability to design electronic circuits";
     mainProgram = "netlist_to_skidl";
-    homepage = "https://xess.com/skidl/docs/_site/";
+    homepage = "https://devbisme.github.io/skidl/";
+    changelog = "https://github.com/devbisme/skidl/blob/${version}/HISTORY.rst";
     license = licenses.mit;
     maintainers = with maintainers; [ matthuszagh ];
   };
